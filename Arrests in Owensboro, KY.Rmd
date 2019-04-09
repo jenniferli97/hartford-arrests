@@ -1,0 +1,82 @@
+---
+title: "Arrests in Owensboro, Kentucky"
+author: "Jennifer Li"
+date: "4/9/2019"
+output: html_document
+---
+```{r madlibs, include=FALSE}
+# sf is for spatial features, used for mapping
+library(sf)
+# fs is for file handling
+library(fs)
+# ggplot2 makes nice graphs
+library(ggplot2)
+# ggthemes helps with creating a nice map later 
+library(ggthemes)
+# tidyverse, our favorite package!
+library(tidyverse)
+# devtools, another favorite
+library(devtools)
+# lubridate makes the date and times look nicer
+library(lubridate)
+# gt makes nice tables
+library(gt)
+# gganimate creates a dynamic map for question 5
+library(gganimate)
+
+# reads in the raw data file and stores it as "hartford" for future use
+hartford <- read_rds(url("https://stacks.stanford.edu/file/druid:tr137st9964/tr137st9964_ct_hartford_2019_02_25.rds"))
+```
+
+```{r dynamic map, echo=FALSE, message=FALSE}
+# reads in the raw data file and stores it as "owensboro" for future use. I decided to use the owensboro data file because it had a manageable number of objects (just under 7,000)
+owensboro <- read_rds(url("https://stacks.stanford.edu/file/druid:tr137st9964/tr137st9964_ky_owensboro_2019_02_25.rds"))
+
+# downloading shape files
+download.file(url = "https://stacks.stanford.edu/file/druid:tr137st9964/tr137st9964_ky_owensboro_shapefiles_2019_02_25.tgz", destfile = "shapes.tgz", 
+              quiet = TRUE)
+# untaring tar files to make the files useable
+untar("shapes.tgz")
+# read specific shapefile that we've created inside of the folder created by untaring
+shapes_data <- read_sf("ky_owensboro_shapefiles/Police_Zones.shp")
+
+# deletes the unnecessary files, as we did in class 
+file_delete(c("shapes.tgz", "ky_owensboro_shapefiles/"))
+
+# creates a copy of owensboro and stores it as ky_arrests for future use
+ky_arrests <- owensboro %>%
+  # filters where arrests were made
+  filter(arrest_made) %>%
+  # filters/cleans up the NAs by returning all non-NA entries in lat
+  filter(!is.na(lat)) %>%
+  # filters/cleans up the NAs by returning all non-NA entries in lng
+  filter(!is.na(lng)) %>%
+  # this is key for the animation! this helps us show the activity over the course of a day by using the time variable 
+  mutate(time = hour(time)) 
+
+# turns the rows into a sf object using st_as_sf and stores it as ky_arrest_locations for future use
+ky_arrests_location <- st_as_sf(ky_arrests,
+                                # lets R know that these are spatial points
+                             coords = c("lng", "lat"),
+                             # creates the coordinate map/sets the coordinate reference system
+                                crs = 4326)
+
+# creates the mapping environment using the shapes_data directly
+ggplot(data = shapes_data) +
+  # plots the shapes data
+  geom_sf() +
+  # plots the points-shaped data (ky_arrests_locations), as specified above. Alpha sets the size of the points.  
+  geom_sf(data = ky_arrests_location, alpha = 0.75) +
+  # this was super important in zooming in the map of Kentucky to focus only on Owensboro. It took a lot of trial and error, but thanks to a few google searches for helping me figure out how to limit the x and y-axis by latitude and longitude 
+  coord_sf(crs = st_crs(4326), xlim = c(-87.16832, -87.01405), ylim = c(37.68202, 37.796), expand = FALSE) + 
+  # as in question 4, this allows us to have a clean theme that is useful for displaying maps
+  theme_map() +
+  # we always need to label our graph! this adds a title, so that the reader understands what they are looking at 
+  labs(title = "Location of All Arrests in Owensboro, KY",
+       # adds the subtitle, so the reader understands what years the data is from
+       subtitle = "Between 2015 and 2017",
+       # adding a caption allows us to add the source of the data the graph uses
+       caption = "Source: Stanford Open Policing Project") +
+  # helps us map the time variable in the data to a specific frame in the animation. now the graph is dynamic, as opposed to the static map in question 4
+  transition_manual(time)
+```
