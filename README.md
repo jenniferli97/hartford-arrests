@@ -1,3 +1,3 @@
 # hartford-arrests
 
-## This repository contains code for a static map of Hartford arrests for white Americans between 2013 and 2016.
+## This repository contains code for a static map of all arrests in Owensboro, KY between 2015 and 2017.
